@@ -1,6 +1,6 @@
 # TSQL Grundlagen
 
-`Zeitraum: 19.10. - 28.10.2021 | Ort: VIRTUAL CLASSROOM | Format: VOLLZEIT`
+`Zeitraum: 19.10. - 28.10.2021 | Ort: VIRTUAL CLASSROOM | Format: TEILZEIT`
 
 ## Content
 
