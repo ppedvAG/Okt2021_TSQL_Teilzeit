@@ -198,7 +198,7 @@ GO		-- Konstruktor nimmt pauschal an, dass alle CHECK immer WITH CHECK sind
 SELECT
 	ActorID
 	, PersonID
-	, FORMAT ( Honorar, 'C' , 'de-DE' )
+	, FORMAT ( Honorar, 'C' , 'de-DE' )		-- RESULT := STRING
 FROM HR.Actor
 
 -- Hausaufgabe > Kurzreferenz zu SELECT durchlesen und Excel-Mappe "Select" befüllen

@@ -7,10 +7,23 @@
 
 -- System-Zeit des SQL-SERVERS , nicht des ausführenden Rechners !!!
 
-SELECT GETDATE();
+SELECT GETDATE();	-- GETDATE := SysZeit des SVR, auf dem SQL SVR läuft = WinSVR
 GO
-SELECT CAST(GETDATE() AS datetime2(0));
+
+-- CAST ( value AS TYPE )
+
+SELECT CAST(GETDATE() AS datetime2(0));	-- Nachkommestellen hinter der Sekunde
+GO					-- siehe später: DATEADD-DATEDIFF-Magic für andere Genauigkeit
+
+-- FORMAT ( value , format [, culture] )
+
+SELECT FORMAT( GETDATE() , 'd' , 'de-DE' )		
 GO
+SELECT FORMAT( GETDATE() , N'dddd, dd.MM.yyyy hh:mm:ss' , 'de-DE')
+GO
+
+-- SystemZeit := Zeit des SQL SVR
+
 SELECT CAST(SYSDATETIME() AS datetime2(0));
 GO
 SELECT CAST(SYSUTCDATETIME() AS datetime2(0));
@@ -41,6 +54,8 @@ GO
 
 -- ##### Berechnete Spalten #####
 
+SELECT * FROM Sales.OrderDetails
+
 -- DEFAULT-Contraint
 ALTER TABLE Sales.OrderDetails ADD CONSTRAINT [DFT_unitprice] DEFAULT ((0)) FOR [unitprice]
 GO
@@ -57,11 +72,11 @@ ALTER TABLE Sales.OrderDetails ADD LineTotal AS (unitprice * qty * (1 - discount
 -- Jede Abfrage ist eine "Filterung" von Daten
 
 SELECT -- Vertikale Filterung
-	companyname AS firma
-	, custid AS kundennummer
-	, city AS stadt
+	companyname		AS [firma]
+	, custid		AS [kundennummer]
+	, city			AS [stadt]
 FROM sales.customers -- Auswahl-Filter
-WHERE custid % 2 = 1 -- Horizontale Filterung 
+WHERE custid % 10 = 1 -- Horizontale Filterung 
 ORDER BY firma, kundennummer, stadt -- nur hier gibt es Alias 
 -- BEST PRACTICE : Innerhalb eines SELECT keinen Spalten-ALIAS verwenden !
 -- BESSER :: ORDER BY city, companyname, custid 
@@ -104,7 +119,7 @@ SELECT TOP 3
 	, contactname
 	, country
 FROM Sales.Customers
-	--WITH (INDEX = idx_nc_city) -- Mit INDEX-Angabe
+-- WITH (INDEX = idx_nc_city) -- Mit INDEX-Angabe
 WHERE country >= N'Brazil' AND country <= N'USA'
 ORDER BY country						-- Sortierung nach country (eigene Sortierung)
 
@@ -227,7 +242,9 @@ WHERE contactname LIKE '[acd]rn%';
 
 SELECT *
 FROM Sales.Customers
-WHERE contactname LIKE '%rn%';
+WHERE contactname LIKE '%[^ø]rn%';
+WHERE contactname LIKE '[^T]%rn%';
+WHERE contactname LIKE '%rn_%';
 
 SELECT *
 FROM Sales.Customers
@@ -236,6 +253,16 @@ WHERE	contacttitle LIKE 'Sales %'
 		AND address LIKE '[0-9]%';
 
 -- BEST PRACTICE : Stored Procedure zum Generieren eines Antwort-Arrays (Vergleich mit Liste möglicher Ausdrücke)
+
+CREATE PROCEDURE dbo.Kunden @contact VARCHAR(10)
+AS
+BEGIN
+	SELECT *
+	FROM Sales.Customers
+	WHERE	contacttitle LIKE @contact + '%'
+END
+
+EXEC dbo.Kunden Sales
 
 -- #######################
 
@@ -249,7 +276,7 @@ SELECT
 		WHEN @pattern LIKE N'%Andreas%' THEN N'true1' 
 		WHEN @pattern LIKE N'%[^B-N]ndreas%' THEN N'true3' --ZeichenListen
 		ELSE 'False'
-	END
+	END 
 
 -- #######################
 
