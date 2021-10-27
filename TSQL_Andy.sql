@@ -392,6 +392,7 @@ SELECT
 	, c.CategoryName
 FROM Production.Categories AS c						-- Tabellen-ALIAS für JOIN
 	INNER JOIN Production.Products AS p ON c.CategoryID = p.CategoryID
+	ORDER BY productname
 
 -- #######################
 
@@ -509,7 +510,7 @@ ORDER BY o.orderid		-- NULL : Kunden, die noch keine Bestellung aufgegeben haben
 -- FULL OUTER JOIN
 SELECT	c.companyname, o.orderid	
 FROM	Sales.Orders AS o
-		FULL JOIN Sales.Customers AS c ON o.custid = c.custid
+		FULL OUTER JOIN Sales.Customers AS c ON o.custid = c.custid
 WHERE	o.custid is null -- OR c.custid is null (nicht notwendig, weil es keine Bestellungen ohne Kunden gibt!)
 ORDER BY o.orderid
 
@@ -556,11 +557,14 @@ GO
 -- UNION All-Operator
 
 -- Funktioniert nur bei den selben Namen, selben Datentypen, selbe Anzahl von Spalten
-SELECT *, 2006 AS Year FROM Sales.[Product Sales for 2006]
+SELECT *, 2006 AS [Year] FROM Sales.[Product Sales for 2006]
 UNION ALL
-SELECT *, 2007 AS Year FROM Sales.[Product Sales for 2007]
+SELECT *, 2007 AS [Year] FROM Sales.[Product Sales for 2007]
 UNION ALL
-SELECT *, 2008 AS Year FROM Sales.[Product Sales for 2008]
+SELECT *, 2008 AS [Year] FROM Sales.[Product Sales for 2008]
+
+UNION		[ 1 , 2 , 1 ] = [ 1 , 2 ] = DISTINCT
+UNION ALL	[ 1 , 2 , 1 ] = [ 1 , 2 , 1 ]
 
 -- #######################
 
