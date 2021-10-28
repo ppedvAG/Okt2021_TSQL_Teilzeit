@@ -640,9 +640,9 @@ GROUP BY c.companyname
 -- Aggregation ZEILENANZAHL
 
 SELECT
-	COUNT(*) as fullRowCount			-- zählt alle Zeilen
-	, COUNT(region) as withRegion		-- ignoriert alle Zeilen mit NULL-Marker
-	, COUNT(Fax) as withFax
+	COUNT(*) AS [fullRowCount]			-- zählt alle Zeilen
+	, COUNT(region) AS [withRegion]		-- ignoriert alle Zeilen mit NULL-Marker
+	, COUNT(*) - COUNT(region) AS [withoutRegion]
 FROM Sales.Customers
 
 	' ##### WICHTIG #######################################################################################
@@ -813,12 +813,17 @@ select
 	, (e.FirstName + ' ' + e.LastName) as FullName
 	, DATEADD(month, DATEDIFF(month, 0, oh.OrderDate), 0) as OrderMonth
 	, sum(od.UnitPrice * od.qty * (1 - od.Discount)) as EmployeeSalesAmount -- FORMATIERUNG rausnehmen
+--	INTO #vEmpOrders		>> Temporäre Tabelle wäre besser gewesen!
 from Sales.OrderDetails as od
 	inner join sales.Orders as oh on od.OrderID = oh.OrderID
 	inner join HR.Employees as e on oh.empid = e.empid
 group by e.empid, (e.FirstName + ' ' + e.LastName)
 	, DATEADD(month, DATEDIFF(month, 0, oh.OrderDate), 0)
 go
+
+SELECT * FROM dbo.vEmpOrders
+SELECT * FROM #vEmpOrders
+
 
 -- [II] View (4 Resourcen-Einheiten notwendig > Tabellen mehrfach anfassen)
 -- Schritt notwendig, weil alternative GruppierungsAnweisung notwendig für Auswertung
@@ -857,7 +862,7 @@ select
 		(partition by empid order by ordermonth rows between unbounded preceding and current row))
 		, 'C', 'en-us')
 	as EmployeeRunningTotal
-from dbo.vEmpOrders
+from dbo.#vEmpOrders
 
 -- #######################
 
@@ -1191,83 +1196,6 @@ select
 	) as EmployeeTotal
 from cteEmpOrders as ve
 
--- #######################
-
--- ####################### [AdventureWorksDW2014] #######################
-	use [AdventureWorksDW2014]
--- #######################
-
--- #### Auswertung nicht-balancierter Hierarchien (Hierarchie-Baum mit unterschielichen Pfadlängen) mittels Rekursion #####
-
--- kann mit CTE realisiert werden
-
-use [AdventureWorksDW2014]
-go
-select * from dbo.DimEmployee
-
--- Wurzel der Hierarchie: höchste Mitarbeiter
-select
-	ParentEmployeeKey as ManagerID
-	, EmployeeKey as EmployeeID
-	, EmergencyContactName AS EmployeeName
-	, 1 as HierarchyLevel
-	, cast(employeekey as nvarchar(100)) as HierarchyPath
-from AdventureWorksDW2014.dbo.DimEmployee
-where ParentEmployeeKey is null
-
-with cteEmpHierarchy
-as (
-	-- Wurzel Start
-	select
-		right('000' + cast(ParentEmployeeKey as nvarchar(3)), 3) as ManagerID		-- führende Nullen bei weniger als 3 Stellen
-		, right('000' + cast(EmployeeKey as nvarchar(3)), 3) as EmployeeID
-		, EmergencyContactName AS EmployeeName
-		, 1 as HierarchyLevel
-		, cast(right('000' + cast(employeekey as nvarchar(3)), 3) as nvarchar(50)) as HierarchyPath
-	from AdventureWorksDW2014.dbo.DimEmployee
-	where ParentEmployeeKey is null
-	-- Wurzel Ende
-	union all
-	-- Unterknoten Start
-	select
-		right('000' + cast(e.ParentEmployeeKey as nvarchar(3)), 3) as ManagerID
-		, right('000' + cast(e.EmployeeKey as nvarchar(3)), 3) as EmployeeID
-		, e.EmergencyContactName AS EmployeeName
-		, cte.HierarchyLevel + 1 as HierarchyLevel
-		, cast(cte.HierarchyPath + ',' + right('000' + cast(employeekey as nvarchar(3)), 3) as nvarchar(50)) as HierarchyPath
-	from AdventureWorksDW2014.dbo.DimEmployee as e
-		inner join cteEmpHierarchy as cte on e.ParentEmployeeKey = cte.EmployeeID	-- Rekursionsaufruf inklusive Rekusionsbedingung
-	-- Unterknoten Ende
-)
-select * from cteEmpHierarchy
-where  HierarchyPath like '%257%' 
-order by HierarchyPath
-
--- Hierarchie-Weg für Mitarbeiter 257
-Select * from cteEmpHierarchy
-where cast(EmployeeID as int) in (112,023,204,043,257)
-order by HierarchyPath
-
--- Alternative für Hardcore-SQL
-declare @empid nchar(3) = '257';								-- EmployeeID vorhalten an EINER STELLE am Anfang
-declare @path nvarchar(50);										-- Weg zwischenspeichern, sobald Antwort gefunden
-with cteEmpHierarchy as ('...')									-- CTE-Aufruf, um Antwort-Element zu finden
-select @path = HierachyPath from cteEmpHierarchy as query1		-- Antwort-String in @Path-Variable speichern
-where query1.EmployeeID = @empid;								-- Basiert auf dem Such-Element ; Alternative :: LIKE @empID
-with cteEmpHierarchy as ('...')									-- Neuer Aufruf der CTE, um nun Vorgesetzte im String zu suchen
-select * from cteEmpHiearchy as query1							-- Sub-Query als Rekursionsaufruf aller übergeordneten Elemente
-where CHARINDEX(EmployeeID,@path,1)<>0							-- Character-weise VON LINKS suchen, FALLS EmployeeID existiert in Liste
-order by HierarchyPath											-- Sortieren vom CEO abwärts bis zum gesuchten Mitarbeiter
--- Exteme-Hardcore-SQL :: Wenn MA mehrere Untergebe hat > Array aus Antwort-Pfaden > Cursor notwendig, um diese zu iterieren!!
-
--- GENAU FÜR SO ETWAS WURDE > ANALYSIS SERVICES < ERFUNDEN :: NUTZE ES !!
-
--- #######################
-
--- ####################### [TSQL2012] #######################
-	use [TSQL2012]
--- #######################
-
 -- ##### Datenmanipulation #####
 
 -- ##### Hinzufügen neuer Datensätze #####
@@ -1316,7 +1244,7 @@ select * from dbo.[Order Details Revised]
 
 -- #######################
 
--- ##### Hinzufügen neuer Datensätze #####
+-- ##### Aktualisieren bestehender Datensätze #####
 
 -- Update ändert Inhalt einer oder mehrerer Spalten in einer oder mehreren Zeilen
 -- FALLS die betreffende Spalte KEINE berechneten Werte beinhaltet (ADD COLUMN) 
@@ -1370,13 +1298,13 @@ update dbo.myOrders
 with cteDifference				-- Wesentlich günstiger als ZEILENWEISES UPDATE wie gerade oben drüber, das SPALTENWEISES Update
 as (							-- Bei FILTERUNG schlägt es um, da dann ZEILENWEISES Update wesentlich effektiver beim Vergleich
 	select
-		o.RequiredDate as referenceColumn
-		, mo.RequiredDate as differenceColumn
+		o.RequiredDate as [ORIGINAL]
+		, mo.RequiredDate as [KOPIE]
 	from Sales.Orders as o inner join dbo.myOrders as mo on o.OrderID = mo.OrderID
 )
---select * from cteDifference									-- Vergleich
-update cteDifference set differenceColumn = referenceColumn		-- Korrektur
-
+--select * from cteDifference					-- Vergleich
+update cteDifference set [ORIGINAL] = [KOPIE]	-- Korrektur
+												-- CTE wird hier WEGGESCHMISSEN
 -- #######################
 
 -- ##### TRANSACTION >> DELETE #####
@@ -1414,7 +1342,7 @@ begin transaction
 		inner join Sales.Customers as c on oh.custid = c.custid
 	where c.Country = 'Austria'
 	select count(*) as CountFiltered from Sales.OrderDetails
-rollback
+commit		-- COMMIT ist das GO für TRANSACTION
 
 -- Alternative zu DELETE ohne Filterung: TRUNCATE TABLE 
 
